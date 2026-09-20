@@ -1,4 +1,29 @@
+# 1. 虛擬環境與編譯快取
 venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+
+# 2. 測試與檢查工具產物 (pytest, mypy, ruff)
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# 3. 私密設定檔（阻擋 .env，但使用 ! 保留範本檔）
 .env
+.env.*
+!.env.example
+
+# 4. 資料庫本地資料與備份
+postgres_data/
+*.sql
+*.dump
+*.log
+
+# 5. 編輯器暫存
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
