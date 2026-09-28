@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI 控制台</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">FASTAPI / POSTGRESQL</p>
+                <h1>後端服務控制台</h1>
+                <p class="intro">在瀏覽器直接測試目前的 API 與資料庫筆記查詢。</p>
+            </div>
+            <div class="status" id="service-status">檢查服務中...</div>
+        </header>
+
+        <section class="grid">
+            <article class="panel">
+                <div class="panel-heading">
+                    <span class="number">01</span>
+                    <div><h2>服務資訊</h2><p>確認 API 是否正常運作</p></div>
+                </div>
+                <div class="actions">
+                    <button type="button" id="health-button">健康檢查</button>
+                    <button type="button" class="secondary" id="version-button">取得版本</button>
+                </div>
+                <pre id="service-result" class="result">尚未執行</pre>
+            </article>
+
+            <article class="panel">
+                <div class="panel-heading">
+                    <span class="number">02</span>
+                    <div><h2>建立商品</h2><p>測試 POST /api/items</p></div>
+                </div>
+                <form id="item-form">
+                    <label>商品名稱<input name="name" required placeholder="例如：機械鍵盤"></label>
+                    <label>價格<input name="price" required type="number" min="0" step="0.01" placeholder="1990"></label>
+                    <button type="submit">送出商品</button>
+                </form>
+                <pre id="item-result" class="result">等待送出</pre>
+            </article>
+
+            <article class="panel panel-wide">
+                <div class="panel-heading">
+                    <span class="number">03</span>
+                    <div><h2>查詢筆記</h2><p>從 PostgreSQL 取得指定 ID 的資料</p></div>
+                </div>
+                <form id="note-form" class="note-form">
+                    <label>筆記 ID<input name="noteId" required type="number" min="1" placeholder="1"></label>
+                    <button type="submit">查詢筆記</button>
+                </form>
+                <pre id="note-result" class="result">尚未查詢</pre>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        const result = (id, value) => {
+            document.getElementById(id).textContent = typeof value === "string"
+                ? value : JSON.stringify(value, null, 2);
+        };
+
+        async function request(url, options) {
+            const response = await fetch(url, options);
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
+            return body;
+        }
+
+        async function checkHealth() {
+            try {
+                const data = await request("api/health");
+                result("service-result", data);
+                document.getElementById("service-status").textContent = "● 服務正常";
+                document.getElementById("service-status").classList.add("online");
+            } catch (error) {
+                result("service-result", `錯誤：${error.message}`);
+                document.getElementById("service-status").textContent = "● 服務異常";
+            }
+        }
+
+        document.getElementById("health-button").addEventListener("click", checkHealth);
+        document.getElementById("version-button").addEventListener("click", async () => {
+            try { result("service-result", await request("api/version")); }
+            catch (error) { result("service-result", `錯誤：${error.message}`); }
+        });
+
+        document.getElementById("item-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.target);
+            try {
+                result("item-result", await request("api/items", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: form.get("name"), price: Number(form.get("price")) })
+                }));
+            } catch (error) { result("item-result", `錯誤：${error.message}`); }
+        });
+
+        document.getElementById("note-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const noteId = new FormData(event.target).get("noteId");
+            try { result("note-result", await request(`api/notes/${noteId}`)); }
+            catch (error) { result("note-result", `錯誤：${error.message}`); }
+        });
+
+        checkHealth();
+    </script>
+</body>
+</html>

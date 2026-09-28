@@ -1,60 +1,57 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response, APIRouter
+from fastapi.staticfiles import StaticFiles
 import psycopg
 from psycopg.rows import dict_row
 from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from fastapi.openapi.docs import get_swagger_ui_html
 
 # 1. 讀取 .env 設定檔與資料庫連線字串
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-app = FastAPI(title="My Backend API")
+app = FastAPI(
+    title="My Backend API & Web App",
+    docs_url=None,                # 使用下方自訂的相對路徑 Swagger UI
+    openapi_url="/api/openapi.json"  # 讓 API 規格文件也移到 /api 底下
+)
+api_router = APIRouter(prefix="/api")
+# 取得專案根目錄下的 webui 資料夾絕對路徑
+BASE_DIR = Path(__file__).resolve().parent.parent
+PUBLIC_DIR = BASE_DIR / "webui"
 
 
-# --- 你原本寫好的商品模型與 API ---
-class Item(BaseModel):
-  name: str
-  price: float
+# 掛載靜態資源與首頁
+app.mount("/static", StaticFiles(directory=str(PUBLIC_DIR)), name="static")
+
+@app.get("/")
+async def serve_index():
+    return FileResponse(PUBLIC_DIR / "index.html")
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check():
-  return {"status": "ok"}
+    return {"status": "ok"}
 
 
-@app.get("/version")
+@app.get("/api/version")
 def get_version():
-  return {"version": "0.1.0"}
+    return {"version": "0.1.0"}
 
 
-@app.post("/items")
-def create_item(item: Item):
-  return item
+@app.get("/api/docs", include_in_schema=False)
+def swagger_ui():
+    # 使用相對路徑，部署在 /s學號/api/docs 時仍能找到 OpenAPI 規格
+    return get_swagger_ui_html(
+        openapi_url="openapi.json",
+        title=app.title + " - Swagger UI",
+    )
 
 
-# --- 本週新增：查詢筆記端點 ---
-@app.get("/notes/{note_id}")
-def get_note(note_id: int):
-  try:
-    # 建立 PostgreSQL 連線，dict_row 能直接將資料庫欄位轉成 JSON 格式回傳
-    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
-      with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, title, content, created_at FROM notes WHERE id = %s",
-            (note_id,),
-        )
-        note = cur.fetchone()
 
-        # 若查無此 ID，回傳 404
-        if not note:
-          raise HTTPException(
-              status_code=404, detail=f"找不到 ID 為 {note_id} 的筆記"
-          )
 
-        return {"status": "success", "data": note}
 
-  except HTTPException:
-    raise
-  except Exception as e:
-    raise HTTPException(status_code=500, detail=f"資料庫查詢錯誤: {str(e)}")
+app.include_router(api_router)
