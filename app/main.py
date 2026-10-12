@@ -6,6 +6,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from app.api import views
 
 # 引入 W04 的 SQLAlchemy 資料庫連線核心與筆記路由模組
 from app.api import notes
@@ -67,3 +68,5 @@ app.include_router(notes.router)
 
 # 2. 掛載一般 API 路由
 app.include_router(api_router)
+
+app.include_router(views.router)
