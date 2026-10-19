@@ -5,9 +5,17 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteResponse
+# 1. 引入剛剛寫好的登入驗證保護函式
+from app.core.security import get_current_member
 
-# 建立專屬於筆記的路由器，統一加上前綴 /api/notes
-router = APIRouter(prefix="/api/notes", tags=["筆記管理 (Notes CRUD)"])
+# 2. 關鍵修改：在 router 加上 dependencies=[Depends(get_current_member)]
+# 這樣整組筆記 API 都會受到 JWT 通行證的保護！
+router = APIRouter(
+    prefix="/api/notes",
+    tags=["筆記管理 (Notes CRUD)"],
+    dependencies=[Depends(get_current_member)],
+)
+
 
 # 1. 取得所有筆記清單 (Read All)
 @router.get("", response_model=List[NoteResponse])
@@ -26,11 +34,10 @@ def get_note_by_id(note_id: int, db: Session = Depends(get_db)):
 # 3. 新增一筆筆記 (Create)
 @router.post("", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
 def create_note(note_in: NoteCreate, db: Session = Depends(get_db)):
-    # 建立 ORM 模型實體
     new_note = Note(title=note_in.title, content=note_in.content)
     db.add(new_note)
-    db.commit()      # 寫入資料庫
-    db.refresh(new_note)  # 重新整理以取得資料庫自動產生的 id 與 created_at
+    db.commit()
+    db.refresh(new_note)
     return new_note
 
 # 4. 修改筆記 (Update)

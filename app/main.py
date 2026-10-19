@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app.api import views
+from starlette.middleware.sessions import SessionMiddleware
+from app.routers import auth  # 引入剛才建立的 auth 路由
 
 # 引入 W04 的 SQLAlchemy 資料庫連線核心與筆記路由模組
 from app.api import notes
@@ -24,6 +26,15 @@ app = FastAPI(
     docs_url=None,  # 停用預設的 /docs，改用下方自訂的相對路徑 Swagger UI
     openapi_url="/api/openapi.json",  # 讓 API 規格文件統一在 /api 底下
 )
+
+# 讀取 Session 密鑰
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "fallback-session-key-random")
+
+# 掛載 Session 中介軟體（必須掛在 app 最前面，以支援 OAuth state 驗證）
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+
+# 掛載認證路由
+app.include_router(auth.router)
 
 api_router = APIRouter(prefix="/api")
 
